@@ -20,7 +20,7 @@ server inside your shell. Example:
 
 ```
 cp croshclip /usr/bin
-echo 'nc -z localhost 30001 || croshclip -serve' > /etc/profile.d/croshclip.sh
+echo 'nc -z localhost 30001 || croshclip -serve > /tmp/croshclip.log 2>&1 &' > /etc/profile.d/croshclip.sh
 chmod 755 /etc/profile.d/croshclip.sh
 ```
 
