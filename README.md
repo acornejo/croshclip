@@ -6,10 +6,8 @@ the crouton [chrome extension](https://chrome.google.com/webstore/detail/crouton
 # Build from source
 
 ```
-git clone https://github.com/acornejo/croshclip.git
-cd croshclip
-go get golang.org/x/net/websocket
-make
+go get github.com/acornejo/croshclip
+go build github.com/acornejo/croshclip
 ```
 
 A statically linked x64 binary of `croshclip` is hosted in github.
