@@ -41,5 +41,8 @@ Here is a very bare-bones integration of croshclip and vim:
 
 ```
 nnoremap "*p :r !croshclip -paste<CR>
-vnoremap "*y :'<,'>w !croshclip -copy<CR>
+vnoremap "*y :w !croshclip -copy<CR><CR>
+
+nnoremap "+p :r !croshclip -paste<CR>
+vnoremap "+y :w !croshclip -copy<CR><CR>
 ```
