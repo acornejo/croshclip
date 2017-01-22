@@ -29,10 +29,10 @@ effect.
 
 Now you can use `croshclip` as you would use `xclip`, i.e.
 
-`
+```
 echo hello world | croshclip -copy
 croshclip -paste > somefile
-`
+```
 
 # Vim integration
 
