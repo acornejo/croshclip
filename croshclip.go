@@ -12,23 +12,23 @@ import (
 	"os"
 )
 
-const address = "localhost:30001"
-
-var Version = []byte("V2")
-var Vok = []byte("VOK")
-var Read = []byte("R")
-var Write = []byte("W")
-var Wok = []byte("WOK")
+const (
+	Version = "V2"
+	Vok     = "VOK"
+	Read    = "R"
+	Write   = "W"
+	Wok     = "WOK"
+)
 
 var fromConsole = make(chan []byte)
 var toConsole = make(chan []byte)
 
-func chromeReader(ws *websocket.Conn, dataCh chan []byte, errCh chan error) {
+func chromeReader(ws *websocket.Conn, dataCh chan []byte) {
 	msg := make([]byte, 1024*10)
 	for {
 		n, err := ws.Read(msg)
 		if err != nil {
-			errCh <- err
+            close(dataCh)
 			return
 		}
 		dataCh <- msg[:n]
@@ -36,48 +36,50 @@ func chromeReader(ws *websocket.Conn, dataCh chan []byte, errCh chan error) {
 }
 
 func wsHandler(ws *websocket.Conn) {
-	ws.Write(Version)
-	msg := make([]byte, 1024*10)
-	n, err := ws.Read(msg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !bytes.Equal(msg[:n], Vok) {
-		log.Fatal("version mismatch")
-	}
-	log.Println("connected.")
+    defer ws.Close()
+    _, err := ws.Write([]byte(Version))
+    if err != nil {
+        log.Println(err)
+        return
+    }
 	chromeData := make(chan []byte)
-	chromeErr := make(chan error)
-	go chromeReader(ws, chromeData, chromeErr)
+	go chromeReader(ws, chromeData)
 	for {
 		select {
-		case chromeMsg := <-chromeData:
+		case chromeMsg, ok := <-chromeData:
+            if !ok {
+                log.Println("closed.")
+                return
+            }
 			if chromeMsg[0] == 'C' {
+                // skip control messages
 				continue
-			} else if bytes.Equal(chromeMsg, Wok) {
+            } else if bytes.Equal(chromeMsg, []byte(Vok)) {
+                log.Println("connected.")
+            } else if bytes.Equal(chromeMsg, []byte(Wok)) {
 				log.Println("copy completed.")
-			} else if bytes.Equal(chromeMsg[0:1], Read) {
+			} else if bytes.Equal(chromeMsg[0:1], []byte(Read)) {
 				log.Println("paste completed.")
 				toConsole <- chromeMsg[1:]
-			}
-		case err := <-chromeErr:
-			fmt.Println(err)
-			break
+            } else {
+                log.Println("unknown extension message ", chromeMsg)
+            }
 		case consoleMsg := <-fromConsole:
-			if bytes.Equal(consoleMsg, Read) {
-				_, err = ws.Write(Read)
+			if bytes.Equal(consoleMsg, []byte(Read)) {
+				_, err = ws.Write([]byte(Read))
 				if err != nil {
 					log.Println(err)
 					break
 				}
-			} else if bytes.Equal(consoleMsg[0:1], Write) {
+			} else if bytes.Equal(consoleMsg[0:1], []byte(Write)) {
 				_, err = ws.Write(consoleMsg)
 				if err != nil {
 					log.Println(err)
 					break
 				}
-
-			}
+			} else {
+                log.Println("unkown console message ", consoleMsg)
+            }
 		}
 	}
 }
@@ -90,18 +92,19 @@ func copyHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	body = append(Write, body...)
+	body = append([]byte(Write), body...)
 	fromConsole <- body
 	w.WriteHeader(http.StatusOK)
 }
 
 func pasteHandler(w http.ResponseWriter, r *http.Request) {
-	fromConsole <- Read
+	fromConsole <- []byte(Read)
 	msg := <-toConsole
 	w.Write(msg)
 }
 
 func main() {
+	const address = "localhost:30001"
 	serve := flag.Bool("serve", false, "Start clipboard server.")
 	copy := flag.Bool("copy", false, "Copy to crouton clipboard.")
 	paste := flag.Bool("paste", false, "Paste from crouton clipboard.")
